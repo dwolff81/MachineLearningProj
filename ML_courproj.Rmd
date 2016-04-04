@@ -1,0 +1,83 @@
+## Prediction of Exercise Manner from Health Device Data
+
+# Executive Summary
+
+I used a tree classification model and a linear disriminant model to predict the classe outcome. The tree classification model was accurate 40% of the time on the testing data. On the values for which the tree classification model was incorrect, the linear discriminant model was correct 50% of the time. Therefore, in combination, the 2 models where correct 70% of the time (14 / 20). 
+
+Several additional models were attempted, including a random forest and naive bayes, however the time to compute each was too long to determine whether they were good models.
+
+# Setup
+
+Set working directory
+
+```{r,echo=TRUE}
+setwd("~/Training/Coursera/Machine Learning")
+```
+
+Load the training and testing data
+
+```{r,echo=TRUE}
+training <- read.csv("pml-training.csv")
+testing <- read.csv("pml-testing.csv")
+```
+
+Load R packages
+
+```{r,echo=TRUE}
+library(ggplot2)
+library(plyr)
+library(stats)
+library(caret)
+library(rattle)
+```
+
+# Refine the data
+
+Eliminate columns with greater than 50% N/A values
+
+```{r,echo=TRUE}
+training2 <- training[colSums(!is.na(training))>nrow(training)*0.5]
+```
+
+Eliminate columns which have close to 0 variability
+
+```{r,echo=TRUE}
+nsv <- nearZeroVar(training2,saveMetrics=TRUE)
+training3 <- training2[-c(6,12:20,43:48,52:60,74:82)]
+```
+
+Eliminate the variable x # x just denotes the row number
+
+```{r,echo=TRUE}
+training4 <- training3[-c(1)]
+```
+
+Remove the timestamp data
+
+```{r,echo=TRUE}
+training5 <- training4[-c(2:4)]
+```
+
+# Build a classification tree model
+
+```{r,echo=TRUE}
+modFit <- train(classe~.,method="rpart",data=training5)
+print(modFit$finalModel)
+fancyRpartPlot(modFit$finalModel)
+```
+
+# Build a linear discriminant model
+
+```{r,echo=TRUE}
+modFit2 <- train(classe~.,method="lda",data=training5)
+```
+
+
+# Predict the values of the testing data
+```{r,echo=TRUE}
+pred <- predict(modFit,testing)
+pred2 <- predict(modFit2,testing)
+```
+
+The values predicted by the classification tree model are `r pred`
+The values predicted by the linear discriminant model are `r pred2`
