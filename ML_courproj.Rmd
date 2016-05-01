@@ -2,9 +2,9 @@
 
 # Executive Summary
 
-I used a tree classification model and a linear disriminant model to predict the classe outcome. The tree classification model was accurate 40% of the time on the testing data. On the values for which the tree classification model was incorrect, the linear discriminant model was correct 50% of the time. Therefore, in combination, the 2 models where correct 70% of the time (14 / 20). 
+I tested two types of models to try to predict the classe variable: a classification tree model and a linear discriminant model. I used cross validation on the training data set, splitting the training data set into a training set and a test set. Both models were trained on the training portion of the partitioned data, and tested on the test portion of the partitioned data. Based on the testing results, the expected out of sample error rate of the classification tree model is 51% and the expected out of sample error rate of the linear discriminant model is 30%.
 
-Several additional models were attempted, including a random forest and naive bayes, however the time to compute each was too long to determine whether they were good models.
+Based on the expected out of sample error rates, the linear discriminant model is a far better predictor of the classe variable, and should be used to predict the test set results.
 
 # Setup
 
@@ -29,9 +29,11 @@ library(plyr)
 library(stats)
 library(caret)
 library(rattle)
+library(rpart)
+library(MASS)
 ```
 
-# Refine the data
+# Refine the training data
 
 Eliminate columns with greater than 50% N/A values
 
@@ -46,38 +48,68 @@ nsv <- nearZeroVar(training2,saveMetrics=TRUE)
 training3 <- training2[-c(6,12:20,43:48,52:60,74:82)]
 ```
 
-Eliminate the variable x # x just denotes the row number
+Eliminate meaningless variables (row number, timestamp, user name, num_window)
 
 ```{r,echo=TRUE}
-training4 <- training3[-c(1)]
+training4 <- training3[-c(1:6)]
 ```
 
-Remove the timestamp data
+# Partition the refined / modified training data
 
 ```{r,echo=TRUE}
-training5 <- training4[-c(2:4)]
+inTrain <- createDataPartition(y = training4$classe, p=0.75, list = FALSE)
+training_partition <- training4[inTrain,]
+testing_partition <- training4[-inTrain,]
 ```
 
-# Build a classification tree model
+# Classification tree model (Model 1)
+
+Build a classification tree model on the training portion of the partitioned training data set
 
 ```{r,echo=TRUE}
-modFit <- train(classe~.,method="rpart",data=training5)
+modFit <- train(classe~.,method="rpart",data=training_partition)
 print(modFit$finalModel)
 fancyRpartPlot(modFit$finalModel)
 ```
 
-# Build a linear discriminant model
+Use the model to predict on the testing portion of the partitioned training data set
 
 ```{r,echo=TRUE}
-modFit2 <- train(classe~.,method="lda",data=training5)
+pred <- predict(modFit,testing_partition)
 ```
 
+Estimate the out of sample error by comparing the prediction results to the actual values of the classe variable
 
-# Predict the values of the testing data
 ```{r,echo=TRUE}
-pred <- predict(modFit,testing)
-pred2 <- predict(modFit2,testing)
+xtab <- table(pred,testing_partition$classe)
+cm <- confusionMatrix(xtab)
+accuracy_mod1 <- cm$overall['Accuracy']
+errrate_mod1 <- 1 - accuracy_mod1
+```
+The expected out of sample error rate of the classification tree model is equal to or greater than `r errrate_mod1` 
+
+# Linear Discriminant model (Model 2)
+
+Build a Linear Discriminant model on the training portion of the partitioned training data set
+
+```{r,echo=TRUE}
+modFit2 <- train(classe~.,method="lda",data=training_partition)
 ```
 
-The values predicted by the classification tree model are `r pred`
-The values predicted by the linear discriminant model are `r pred2`
+Use the model to predict on the testing portion of the partitioned training data set
+
+```{r,echo=TRUE}
+pred2 <- predict(modFit2,testing_partition)
+```
+
+Estimate the out of sample error by comparing the prediction results to the actual values of the classe variable
+
+```{r,echo=TRUE}
+xtab2 <- table(pred2,testing_partition$classe)
+cm2 <- confusionMatrix(xtab2)
+accuracy_mod2 <- cm2$overall['Accuracy']
+errrate_mod2 <- 1 - accuracy_mod2
+```
+The expected out of sample error rate of the linear disciminant model is equal to or greater than `r errrate_mod2` 
+
+
